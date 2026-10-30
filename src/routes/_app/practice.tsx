@@ -1,10 +1,10 @@
 import { getTutorResponse, getSessionReview } from "@/lib/llm.functions";
-import { getRimeVoiceTestAudio } from "@/lib/rime.functions";
 import {
   type ConversationTurn,
   type LearnerLevel,
   type PracticeSession,
   type SessionReview,
+  awardSessionXp,
   readPracticePreferences,
   savePracticePreferences,
   savePracticeSession,
@@ -27,7 +27,10 @@ export const Route = createFileRoute("/_app/practice")({
 });
 
 type RecognitionResultEvent = Event & {
-  results: { length: number; [index: number]: { [index: number]: { transcript: string } } };
+  results: {
+    length: number;
+    [index: number]: { isFinal: boolean; [index: number]: { transcript: string } };
+  };
 };
 
 type RecognitionInstance = {
@@ -54,6 +57,26 @@ const GOALS = [
   "Use grammar more accurately",
   "Improve pronunciation",
 ];
+const END_OF_TURN_FINAL_MS = 450;
+const END_OF_TURN_INTERIM_MS = 750;
+
+function logTutorPerformance(
+  requestId: string,
+  stage: string,
+  elapsedMs?: number,
+  details: Record<string, number | string | boolean> = {},
+) {
+  console.info(
+    JSON.stringify({
+      component: "tutor-performance",
+      layer: "browser",
+      requestId,
+      stage,
+      ...(elapsedMs === undefined ? {} : { elapsedMs: Math.round(elapsedMs) }),
+      ...details,
+    }),
+  );
+}
 
 function Practice() {
   const { language, setLanguage } = useLanguage();
@@ -73,23 +96,34 @@ function Practice() {
   const [startedAt, setStartedAt] = useState<string | null>(null);
   const recognitionRef = useRef<RecognitionInstance | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const latestAudioRef = useRef<{ audioBase64: string; contentType: string } | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
+  const ttsAbortRef = useRef<AbortController | null>(null);
   const latestTutorTextRef = useRef("");
+  const failedTranscriptRef = useRef<string | null>(null);
   const turnsRef = useRef<ConversationTurn[]>([]);
   const busyRef = useRef(false);
   const endedRef = useRef(false);
   const mountedRef = useRef(true);
+  const recognitionTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      if (recognitionTimerRef.current !== null) {
+        window.clearTimeout(recognitionTimerRef.current);
+      }
       recognitionRef.current?.stop();
       recognitionRef.current = null;
+      ttsAbortRef.current?.abort();
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = "";
         audioRef.current = null;
+      }
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
       }
     };
   }, []);
@@ -138,7 +172,11 @@ function Practice() {
     setTurns(next);
   };
 
-  const playLatestReply = async (retry = false) => {
+  const playLatestReply = async (
+    retry = false,
+    requestId = crypto.randomUUID(),
+    turnSpeechAt = performance.now(),
+  ) => {
     if (muted) {
       setStatus("Tutor audio is muted. Turn mute off to listen.");
       return;
@@ -146,46 +184,125 @@ function Practice() {
     const reply = latestTutorTextRef.current;
     if (!reply) return;
 
+    const ttsStartedAt = performance.now();
     try {
       setError("");
       setStatus(retry ? "Retrying tutor audio…" : "Preparing tutor audio…");
-      let audioData = latestAudioRef.current;
-      if (retry || !audioData) {
-        const result = await getRimeVoiceTestAudio({
-          data: { text: reply.slice(0, 1000), language: language.code },
-        });
-        audioData = result;
-        latestAudioRef.current = result;
-      }
-      if (!audioData) throw new Error("Tutor audio is not available yet.");
-      const audio = new Audio(`data:${audioData.contentType};base64,${audioData.audioBase64}`);
+      ttsAbortRef.current?.abort();
+      const abortController = new AbortController();
+      ttsAbortRef.current = abortController;
       audioRef.current?.pause();
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+
+      logTutorPerformance(requestId, "rime-request-start", ttsStartedAt);
+      const response = await fetch("/api/tutor-audio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: reply.slice(0, 1000),
+          language: language.code,
+          requestId,
+        }),
+        signal: abortController.signal,
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: unknown } | null;
+        throw new Error(
+          typeof payload?.error === "string" ? payload.error : "Tutor audio is unavailable.",
+        );
+      }
+      if (!response.body) throw new Error("Tutor audio stream was empty.");
+      logTutorPerformance(requestId, "rime-response-headers", performance.now() - ttsStartedAt);
+
+      const audio = new Audio();
+      const audioMime = response.headers.get("content-type") ?? "audio/webm;codecs=opus";
       audioRef.current = audio;
+
       audio.onended = () => {
         if (!mountedRef.current) return;
         setIsSpeaking(false);
         setMascotState("idle");
         setStatus("Your turn. Tap the microphone when you are ready.");
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+          audioUrlRef.current = null;
+        }
       };
       audio.onerror = () => {
         if (!mountedRef.current) return;
+        const mediaError = audio.error;
+        logTutorPerformance(requestId, "audio-element-error", performance.now() - ttsStartedAt, {
+          mediaErrorCode: mediaError?.code ?? 0,
+          mediaErrorMessage: mediaError?.message ?? "No browser media error detail",
+          mimeType: audioMime,
+        });
         setIsSpeaking(false);
         setMascotState("idle");
-        setError("Audio could not be played. Check your connection, then retry.");
+        setError(
+          mediaError
+            ? `Tutor audio could not be decoded (media error ${mediaError.code}). Please retry audio.`
+            : "Tutor audio could not be played. Please retry audio.",
+        );
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+          audioUrlRef.current = null;
+        }
       };
+      audio.onplaying = () => {
+        if (!mountedRef.current) return;
+        logTutorPerformance(requestId, "tutor-audio-playing", performance.now() - ttsStartedAt);
+        logTutorPerformance(
+          requestId,
+          "tutor-total-response-latency",
+          performance.now() - turnSpeechAt,
+          { startBasis: "last-browser-recognition-event; not a microphone VAD timestamp" },
+        );
+        setIsSpeaking(true);
+        setMascotState("speaking");
+        setStatus("Listening to your tutor…");
+      };
+
+      const audioBlob = await response.blob();
+      if (audioBlob.size === 0) throw new Error("Rime returned an empty audio stream.");
+      logTutorPerformance(requestId, "audio-buffer-ready", performance.now() - ttsStartedAt, {
+        streamingPlayback: false,
+        byteLength: audioBlob.size,
+        mimeType: audioBlob.type || audioMime,
+      });
+      const blobUrl = URL.createObjectURL(audioBlob);
+      audioUrlRef.current = blobUrl;
+      audio.src = blobUrl;
       await audio.play();
-      setIsSpeaking(true);
-      setMascotState("speaking");
-      setStatus("Listening to your tutor…");
+      if (ttsAbortRef.current === abortController) ttsAbortRef.current = null;
     } catch (reason) {
       if (!mountedRef.current) return;
+      logTutorPerformance(requestId, "rime-request-failed", performance.now() - ttsStartedAt);
+      ttsAbortRef.current?.abort();
+      ttsAbortRef.current = null;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      }
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
       setIsSpeaking(false);
       setMascotState("idle");
+      if (reason instanceof Error && reason.name === "AbortError") return;
       setError(reason instanceof Error ? reason.message : "Tutor audio failed.");
     }
   };
 
-  const handleTranscript = async (rawText: string) => {
+  const handleTranscript = async (
+    rawText: string,
+    retry = false,
+    requestId = crypto.randomUUID(),
+    lastSpeechEventAt = performance.now(),
+  ) => {
     const text = rawText.trim();
     if (!text) {
       setStatus("No speech was recognized. Please try again.");
@@ -193,39 +310,49 @@ function Practice() {
       return;
     }
 
-    const priorTurns = turnsRef.current;
-    addTurn("learner", text);
+    const priorTurns = retry ? turnsRef.current.slice(0, -1) : turnsRef.current;
+    if (!retry) addTurn("learner", text);
     busyRef.current = true;
     setIsBusy(true);
     setError("");
     setMascotState("thinking");
     setStatus("Working on your reply…");
+    const geminiStartedAt = performance.now();
     try {
+      logTutorPerformance(requestId, "gemini-request-start", geminiStartedAt);
       const response = await withTimeout(
         getTutorResponse({
           data: {
+            requestId,
             text,
             language: language.code,
             level,
             topic: topic.trim() || language.topic,
             goal,
             history: priorTurns
-              .slice(-20)
+              .slice(-8)
               .map(({ role, text: turnText }) => ({ role, text: turnText })),
           },
         }),
-        45_000,
+        27_000,
+      );
+      logTutorPerformance(
+        requestId,
+        "gemini-response-complete",
+        performance.now() - geminiStartedAt,
       );
       if (!mountedRef.current || endedRef.current) return;
+      failedTranscriptRef.current = null;
       latestTutorTextRef.current = response.speech;
-      latestAudioRef.current = null;
       addTurn("tutor", response.speech, response.explanation ?? undefined);
       setStatus("Tutor reply ready.");
       setMascotState("idle");
-      await playLatestReply();
+      await playLatestReply(false, requestId, lastSpeechEventAt);
     } catch (reason) {
       if (!mountedRef.current || endedRef.current) return;
       const message = reason instanceof Error ? reason.message : "Tutor response failed.";
+      logTutorPerformance(requestId, "gemini-request-failed", performance.now() - geminiStartedAt);
+      failedTranscriptRef.current = text;
       setError(message.includes("timed out") ? message : `Could not get a tutor reply: ${message}`);
       setStatus("Your transcript is saved in this session. Try again when ready.");
       setMascotState("confused");
@@ -259,9 +386,42 @@ function Practice() {
     const recognition = new Recognition();
     recognition.lang = { en: "en-US", es: "es-ES", fr: "fr-FR", hi: "hi-IN" }[language.code];
     recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
+    let transcript = "";
+    let transcriptIsFinal = false;
+    let lastSpeechEventAt = performance.now();
+    let submitted = false;
+    const requestId = crypto.randomUUID();
+    const submitTranscript = () => {
+      if (submitted || endedRef.current || !mountedRef.current) return;
+      submitted = true;
+      if (recognitionTimerRef.current !== null) {
+        window.clearTimeout(recognitionTimerRef.current);
+        recognitionTimerRef.current = null;
+      }
+      if (transcript.trim()) {
+        const detectedAt = performance.now();
+        logTutorPerformance(requestId, "user-speech-stop-estimate", undefined, {
+          basis: "last-browser-recognition-event; Web Speech API has no mic VAD timestamp",
+        });
+        logTutorPerformance(
+          requestId,
+          "end-of-turn-detection-complete",
+          detectedAt - lastSpeechEventAt,
+          { transcriptIsFinal },
+        );
+        logTutorPerformance(requestId, "transcript-finalized", undefined, {
+          finalResult: transcriptIsFinal,
+          sinceLastRecognitionEventMs: Math.round(detectedAt - lastSpeechEventAt),
+        });
+        setIsListening(false);
+        setStatus("Preparing your reply…");
+        void handleTranscript(transcript, false, requestId, lastSpeechEventAt);
+      }
+    };
     recognition.onstart = () => {
       recognitionRef.current = recognition;
+      logTutorPerformance(requestId, "speech-recognition-start");
       setStartedAt((current) => current ?? new Date().toISOString());
       setError("");
       setIsListening(true);
@@ -269,16 +429,37 @@ function Practice() {
       setStatus("Listening… speak naturally.");
     };
     recognition.onresult = (event) => {
-      const spoken = Array.from(
-        { length: event.results.length },
-        (_, index) => event.results[index]?.[0]?.transcript ?? "",
-      )
+      const results = Array.from({ length: event.results.length }, (_, index) => ({
+        text: event.results[index]?.[0]?.transcript ?? "",
+        isFinal: event.results[index]?.isFinal ?? false,
+      }));
+      transcript = results
+        .map((result) => result.text)
         .join(" ")
         .trim();
-      setIsListening(false);
-      void handleTranscript(spoken);
+      transcriptIsFinal = results.length > 0 && results.every((result) => result.isFinal);
+      lastSpeechEventAt = performance.now();
+      logTutorPerformance(requestId, "speech-transcript-update", undefined, {
+        finalResult: transcriptIsFinal,
+        resultCount: results.length,
+      });
+      if (recognitionTimerRef.current !== null) {
+        window.clearTimeout(recognitionTimerRef.current);
+      }
+      recognitionTimerRef.current = window.setTimeout(
+        () => {
+          recognitionTimerRef.current = null;
+          recognition.stop();
+          submitTranscript();
+        },
+        transcriptIsFinal ? END_OF_TURN_FINAL_MS : END_OF_TURN_INTERIM_MS,
+      );
     };
     recognition.onerror = (event) => {
+      if (recognitionTimerRef.current !== null) {
+        window.clearTimeout(recognitionTimerRef.current);
+        recognitionTimerRef.current = null;
+      }
       setIsListening(false);
       setMascotState("idle");
       const messages: Record<string, string> = {
@@ -297,6 +478,7 @@ function Practice() {
     recognition.onend = () => {
       setIsListening(false);
       if (recognitionRef.current === recognition) recognitionRef.current = null;
+      submitTranscript();
     };
     try {
       recognition.start();
@@ -308,7 +490,14 @@ function Practice() {
   const stopAudio = () => {
     recognitionRef.current?.stop();
     recognitionRef.current = null;
+    ttsAbortRef.current?.abort();
+    ttsAbortRef.current = null;
     audioRef.current?.pause();
+    if (audioRef.current) audioRef.current.src = "";
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
     setIsListening(false);
     setIsSpeaking(false);
     setMascotState("idle");
@@ -320,7 +509,10 @@ function Practice() {
     endedRef.current = true;
     recognitionRef.current?.stop();
     recognitionRef.current = null;
+    ttsAbortRef.current?.abort();
+    ttsAbortRef.current = null;
     audioRef.current?.pause();
+    if (audioRef.current) audioRef.current.src = "";
     setIsListening(false);
     setIsSpeaking(false);
     const sessionId = crypto.randomUUID();
@@ -371,6 +563,7 @@ function Practice() {
       setStatus("Session results were not saved.");
       return;
     }
+    awardSessionXp(session);
     await navigate({ to: "/feedback", search: { sessionId } });
   };
 
@@ -496,7 +689,14 @@ function Practice() {
             onClick={() => {
               setMuted((value) => !value);
               if (!muted) {
+                ttsAbortRef.current?.abort();
+                ttsAbortRef.current = null;
                 audioRef.current?.pause();
+                if (audioRef.current) audioRef.current.src = "";
+                if (audioUrlRef.current) {
+                  URL.revokeObjectURL(audioUrlRef.current);
+                  audioUrlRef.current = null;
+                }
                 setIsSpeaking(false);
                 setMascotState("idle");
                 setStatus("Tutor audio muted.");
@@ -521,7 +721,7 @@ function Practice() {
           <button
             type="button"
             onClick={stopAudio}
-            disabled={!isListening && !isSpeaking}
+            disabled={!isListening && !isSpeaking && !isBusy}
             aria-label="Stop audio or listening"
             title="Stop"
             className="grid size-11 place-items-center rounded-full border border-border bg-card disabled:opacity-40"
@@ -543,6 +743,19 @@ function Practice() {
           >
             End session
           </button>
+          {failedTranscriptRef.current ? (
+            <button
+              type="button"
+              onClick={() => {
+                const text = failedTranscriptRef.current;
+                if (text) void handleTranscript(text, true);
+              }}
+              disabled={isBusy}
+              className="rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium disabled:opacity-50"
+            >
+              Retry tutor reply
+            </button>
+          ) : null}
         </div>
 
         <ol aria-label="Conversation transcript" className="mt-9 w-full max-w-2xl space-y-3">

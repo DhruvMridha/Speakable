@@ -1,7 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Badge, Card, Eyebrow } from "@/components/lingo/kit";
-import { getPracticeSession, getSessionDuration, type PracticeSession } from "@/lib/sessions";
+import { ProgressSummary } from "@/components/lingo/progress-summary";
+import {
+  getPracticeSession,
+  getSessionDuration,
+  readPracticeSessions,
+  type PracticeSession,
+} from "@/lib/sessions";
 
 export const Route = createFileRoute("/_app/feedback")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -14,9 +20,11 @@ export const Route = createFileRoute("/_app/feedback")({
 function Feedback() {
   const { sessionId } = Route.useSearch();
   const [session, setSession] = useState<PracticeSession>();
+  const [sessions, setSessions] = useState<PracticeSession[]>([]);
 
   useEffect(() => {
     setSession(getPracticeSession(sessionId));
+    setSessions(readPracticeSessions());
   }, [sessionId]);
 
   if (!session) {
@@ -46,27 +54,40 @@ function Feedback() {
   const review = session.review;
 
   return (
-    <div className="mx-auto max-w-3xl animate-[rise_0.5s_cubic-bezier(0.22,1,0.36,1)_both] px-5 py-10 sm:px-8 lg:py-14">
-      <Eyebrow>
-        Session complete · {durationLabel} · {completedTurns} completed{" "}
-        {completedTurns === 1 ? "turn" : "turns"}
-      </Eyebrow>
-      <div className="mt-3 flex flex-wrap items-end justify-between gap-5">
-        <div>
-          <h1 className="font-display text-3xl font-semibold sm:text-4xl">
-            Your {session.languageName} session
+    <div className="mx-auto max-w-4xl animate-[rise_0.5s_cubic-bezier(0.22,1,0.36,1)_both] px-5 py-10 sm:px-8 lg:py-14">
+      <Card className="relative overflow-hidden border-primary/10 bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground">
+        <div
+          className="absolute -right-10 -top-12 size-48 rounded-full border-[24px] border-primary-foreground/5"
+          aria-hidden="true"
+        />
+        <div className="relative">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Eyebrow className="text-primary-foreground/70">Session complete</Eyebrow>
+            <Badge tone="neutral" className="bg-primary-foreground/10 text-primary-foreground">
+              {new Date(session.endedAt).toLocaleString()}
+            </Badge>
+          </div>
+          <h1 className="mt-4 font-display text-3xl font-semibold sm:text-4xl">
+            A great step in your {session.languageName} journey
           </h1>
-          <p className="mt-2 text-muted-foreground">
-            {session.topic} · {session.level} · {session.goal}
+          <p className="mt-2 text-sm text-primary-foreground/75">
+            {session.topic} · {session.level} · {durationLabel} · {completedTurns} completed{" "}
+            {completedTurns === 1 ? "turn" : "turns"}
+          </p>
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-primary-foreground/85">
+            Your conversation has been saved. Review your tutor&apos;s feedback if available, then
+            keep building the habit.
           </p>
         </div>
-        <Badge tone="accent">{new Date(session.endedAt).toLocaleString()}</Badge>
-      </div>
+      </Card>
+
+      <ProgressSummary sessions={sessions} featuredSessionId={session.id} />
 
       {review ? (
         <>
           <Card className="mt-7 bg-surface">
-            <Eyebrow>Session summary</Eyebrow>
+            <Eyebrow>Tutor feedback · based on this conversation</Eyebrow>
+            <h2 className="mt-2 font-display text-xl font-semibold">Session summary</h2>
             <p className="mt-3 leading-relaxed">{review.summary}</p>
             <p className="mt-4 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">Next practice:</span>{" "}
@@ -117,19 +138,22 @@ function Feedback() {
           )}
         </>
       ) : (
-        <Card className="mt-7">
-          <Eyebrow>Feedback unavailable</Eyebrow>
-          <p className="mt-2 text-sm text-muted-foreground">
+        <Card className="mt-7 border-warn/20 bg-warn-soft/30">
+          <Eyebrow>Feedback not available this time</Eyebrow>
+          <p className="mt-2 leading-relaxed text-muted-foreground">
             {session.reviewError ??
-              "This session does not have enough completed conversation for a review."}{" "}
-            No scores or improvements are estimated.
+              "There was not enough completed conversation to generate a tutor review."}{" "}
+            Your transcript is saved below, and no scores or feedback have been estimated.
           </p>
         </Card>
       )}
 
       <section id="transcript" className="mt-9 scroll-mt-20">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="font-display text-xl font-semibold">Conversation transcript</h2>
+          <div>
+            <Eyebrow>Saved conversation</Eyebrow>
+            <h2 className="mt-1 font-display text-xl font-semibold">Conversation transcript</h2>
+          </div>
           <span className="text-sm text-muted-foreground">{session.turns.length} messages</span>
         </div>
         {session.turns.length > 0 ? (

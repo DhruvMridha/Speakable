@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Eyebrow } from "@/components/lingo/kit";
+import { ProgressSummary } from "@/components/lingo/progress-summary";
 import { LanguageTabs } from "@/components/lingo/language-switcher";
 import { useLanguage } from "@/lib/language";
 import { getSessionDuration, readPracticeSessions, type PracticeSession } from "@/lib/sessions";
@@ -37,10 +38,12 @@ function Progress() {
         {language.name} practice
       </h1>
       <p className="mt-3 text-muted-foreground">
-        These totals come from saved sessions. Speakyy does not yet calculate fluency, accuracy,
-        streaks, or long-term improvement.
+        Your XP, daily goal, streak, and achievements are based on saved practice on this device.
+        Tutor feedback is shown only when it was actually generated for a session.
       </p>
       <LanguageTabs className="mt-6" />
+
+      <ProgressSummary sessions={sessions} />
 
       <div className="mt-7 grid gap-3 sm:grid-cols-3">
         <Metric label="Saved sessions" value={String(languageSessions.length)} />

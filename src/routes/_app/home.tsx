@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { LingoMascot } from "@/components/lingo/lingo-mascot";
 import { LanguageSwitcher } from "@/components/lingo/language-switcher";
 import { Card, Eyebrow } from "@/components/lingo/kit";
+import { ProgressSummary } from "@/components/lingo/progress-summary";
 import { useLanguage } from "@/lib/language";
 import { getSessionDuration, readPracticeSessions, type PracticeSession } from "@/lib/sessions";
 
@@ -84,6 +85,8 @@ function Home() {
           <Metric label="Speaking time" value={`${Math.floor(totalSeconds / 60)} min`} />
         </div>
       </section>
+
+      <ProgressSummary sessions={sessions} />
 
       <Card className="mt-6">
         <div className="flex flex-wrap items-center justify-between gap-3">

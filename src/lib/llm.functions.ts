@@ -2,6 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 const tutorRequestSchema = z.object({
+  requestId: z
+    .string()
+    .regex(/^[\w-]{1,80}$/)
+    .optional(),
   text: z.string().trim().min(1).max(2000),
   language: z.enum(["en", "es", "fr", "hi"]),
   level: z.enum(["Beginner", "Elementary", "Intermediate", "Advanced"]),

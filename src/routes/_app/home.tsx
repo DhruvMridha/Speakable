@@ -8,7 +8,7 @@ import { useLanguage } from "@/lib/language";
 import { getSessionDuration, readPracticeSessions, type PracticeSession } from "@/lib/sessions";
 
 export const Route = createFileRoute("/_app/home")({
-  head: () => ({ meta: [{ title: "Home — Speakyy" }] }),
+  head: () => ({ meta: [{ title: "Home — Speakable" }] }),
   component: Home,
 });
 

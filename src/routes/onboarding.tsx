@@ -9,13 +9,13 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
     meta: [
-      { title: "Set up your learner profile — Speakyy" },
+      { title: "Set up your learner profile — Speakable" },
       {
         name: "description",
         content:
-          "Choose your language, tell Speakyy what you want to improve, your level and what you like talking about.",
+          "Choose your language, tell Speakable what you want to improve, your level and what you like talking about.",
       },
-      { property: "og:title", content: "Set up your learner profile — Speakyy" },
+      { property: "og:title", content: "Set up your learner profile — Speakable" },
       {
         property: "og:description",
         content: "Four short questions to personalize your practice sessions.",
@@ -121,7 +121,7 @@ function Onboarding() {
           <span className="grid size-8 place-items-center rounded-xl bg-primary">
             <span className="block size-2.5 rounded-full bg-accent" />
           </span>
-          <span className="font-display text-lg font-semibold">Speakyy</span>
+          <span className="font-display text-lg font-semibold">Speakable</span>
         </Link>
         <span className="text-sm text-muted-foreground">Takes 30 seconds</span>
       </header>
@@ -167,7 +167,7 @@ function Onboarding() {
             </div>
 
             <p className="mt-6 text-sm text-muted-foreground">
-              Speakyy's interface and reports are in English — only the conversation itself is in{" "}
+              Speakable's interface and reports are in English — only the conversation itself is in{" "}
               {language.name}.
             </p>
           </>

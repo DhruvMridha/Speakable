@@ -1,6 +1,6 @@
-# Speakyy
+# Speakable
 
-Speakyy is a voice-based language-practice MVP built with TanStack Start, React, and TypeScript. The browser's speech-recognition API captures learner speech, server functions send the transcript and conversation context to Gemini, and a server function synthesizes the tutor reply with Rime Coda.
+Speakable is a voice-based language-practice MVP built with TanStack Start, React, and TypeScript. The browser's speech-recognition API captures learner speech, server functions send the transcript and conversation context to Gemini, and a server function synthesizes the tutor reply with Rime Coda.
 
 ## Requirements
 
@@ -45,7 +45,7 @@ The tests cover browser-local session persistence and timestamp-derived duration
 ## Data and integrations
 
 - Learner language and practice defaults, session transcripts, and generated feedback are stored in the current browser's `localStorage` (up to 50 sessions). There is no authentication or database, and data does not sync across devices.
-- Corrections and suggested phrases are shown only when generated from a real session transcript. Speakyy does not calculate proficiency scores, streaks, or long-term improvement.
+- Corrections and suggested phrases are shown only when generated from a real session transcript. Speakable does not calculate proficiency scores, streaks, or long-term improvement.
 - Rime Coda is configured with documented speakers for the supported languages: `astra` (English), `lark` (Spanish), `aurelie` (French), and `nadi` (Hindi).
 - The LiveKit worker under `src/agent` is a separate, English-only integration and is not used by the browser practice flow. It has not been verified as a connected agent deployment.
 

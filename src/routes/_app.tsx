@@ -72,7 +72,7 @@ export function Wordmark({ compact = false }: { compact?: boolean }) {
         <span className="block size-2.5 rounded-full bg-accent" />
       </span>
       {!compact && (
-        <span className="font-display text-lg font-semibold tracking-tight">Speakyy</span>
+        <span className="font-display text-lg font-semibold tracking-tight">Speakable</span>
       )}
     </Link>
   );

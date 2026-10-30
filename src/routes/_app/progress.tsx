@@ -7,7 +7,7 @@ import { useLanguage } from "@/lib/language";
 import { getSessionDuration, readPracticeSessions, type PracticeSession } from "@/lib/sessions";
 
 export const Route = createFileRoute("/_app/progress")({
-  head: () => ({ meta: [{ title: "Progress — Speakyy" }] }),
+  head: () => ({ meta: [{ title: "Progress — Speakable" }] }),
   component: Progress,
 });
 

@@ -4,7 +4,7 @@ import { Eyebrow } from "@/components/lingo/kit";
 import { getSessionDuration, readPracticeSessions, type PracticeSession } from "@/lib/sessions";
 
 export const Route = createFileRoute("/_app/history")({
-  head: () => ({ meta: [{ title: "Session history — Speakyy" }] }),
+  head: () => ({ meta: [{ title: "Session history — Speakable" }] }),
   component: History,
 });
 

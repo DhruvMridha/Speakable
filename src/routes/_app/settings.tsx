@@ -12,7 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_app/settings")({
-  head: () => ({ meta: [{ title: "Settings — Speakyy" }] }),
+  head: () => ({ meta: [{ title: "Settings — Speakable" }] }),
   component: Settings,
 });
 

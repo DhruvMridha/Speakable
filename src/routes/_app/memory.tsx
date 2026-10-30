@@ -6,7 +6,7 @@ import { useLanguage } from "@/lib/language";
 import { readPracticeSessions, type PracticeSession } from "@/lib/sessions";
 
 export const Route = createFileRoute("/_app/memory")({
-  head: () => ({ meta: [{ title: "Learning notes — Speakyy" }] }),
+  head: () => ({ meta: [{ title: "Learning notes — Speakable" }] }),
   component: Memory,
 });
 
@@ -29,7 +29,7 @@ function Memory() {
         What your {language.name} sessions recorded
       </h1>
       <p className="mt-3 max-w-2xl text-muted-foreground">
-        These notes come from completed conversations and their AI reviews. Speakyy does not infer
+        These notes come from completed conversations and their AI reviews. Speakable does not infer
         long-term strengths or recurring patterns yet.
       </p>
       <LanguageTabs className="mt-6" />

@@ -19,7 +19,7 @@ import { useEffect, useRef, useState } from "react";
 export const Route = createFileRoute("/_app/practice")({
   head: () => ({
     meta: [
-      { title: "Practice — Speakyy" },
+      { title: "Practice — Speakable" },
       { name: "description", content: "Practise a real conversation with your language tutor." },
     ],
   }),

@@ -5,7 +5,7 @@ import { VoiceOrb } from "@/components/lingo/voice-orb";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Speakyy — Learn to speak any language, not just memorize it" },
+      { title: "Speakable — Learn to speak any language, not just memorize it" },
       {
         name: "description",
         content:
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/")({
       },
       {
         property: "og:title",
-        content: "Speakyy — Learn to speak any language, not just memorize it",
+        content: "Speakable — Learn to speak any language, not just memorize it",
       },
       {
         property: "og:description",
@@ -33,7 +33,7 @@ function Landing() {
           <span className="grid size-8 place-items-center rounded-xl bg-primary">
             <span className="block size-2.5 rounded-full bg-accent" />
           </span>
-          <span className="font-display text-lg font-semibold tracking-tight">Speakyy</span>
+          <span className="font-display text-lg font-semibold tracking-tight">Speakable</span>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/demo" className={buttonClass("ghost", "sm") + " hidden sm:inline-flex"}>
@@ -156,7 +156,7 @@ function Landing() {
       </section>
 
       <footer className="mx-auto flex max-w-6xl flex-col gap-3 px-6 py-10 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-        <span>Speakyy — voice practice and session feedback in every supported language.</span>
+        <span>Speakable — voice practice and session feedback in every supported language.</span>
         <Link to="/home" className="hover:text-foreground">
           Enter the product →
         </Link>

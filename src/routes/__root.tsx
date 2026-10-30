@@ -79,16 +79,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Speakyy — Learn to speak any language, not just memorize it" },
+      { title: "Speakable — Learn to speak any language, not just memorize it" },
       {
         name: "description",
         content:
           "Voice practice for English, Spanish, French and Hindi with conversation-based feedback and local session history.",
       },
-      { name: "author", content: "Speakyy" },
+      { name: "author", content: "Speakable" },
       {
         property: "og:title",
-        content: "Speakyy — Learn to speak any language, not just memorize it",
+        content: "Speakable — Learn to speak any language, not just memorize it",
       },
       {
         property: "og:description",
@@ -99,7 +99,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       {
         name: "twitter:title",
-        content: "Speakyy — Learn to speak any language, not just memorize it",
+        content: "Speakable — Learn to speak any language, not just memorize it",
       },
       {
         name: "twitter:description",

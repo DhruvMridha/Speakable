@@ -6,13 +6,13 @@ import { LingoMascot } from "@/components/lingo/lingo-mascot";
 export const Route = createFileRoute("/_app/demo")({
   head: () => ({
     meta: [
-      { title: "How Speakyy practice could work — demo" },
+      { title: "How Speakable practice could work — demo" },
       {
         name: "description",
         content:
           "A visual walkthrough: conversation → learner memory → personalized lesson → improvement.",
       },
-      { property: "og:title", content: "How Speakyy practice could work — demo" },
+      { property: "og:title", content: "How Speakable practice could work — demo" },
       {
         property: "og:description",
         content: "Session 1 finds the mistake. Session 2 fixes it on purpose.",
@@ -132,8 +132,8 @@ function Demo() {
           ))}
         </ol>
         <p className="mt-8 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          This walkthrough uses fictional examples to show a possible product flow. Speakyy does not
-          yet retain long-term learner memory or calculate improvement between sessions.
+          This walkthrough uses fictional examples to show a possible product flow. Speakable does
+          not yet retain long-term learner memory or calculate improvement between sessions.
         </p>
       </div>
 

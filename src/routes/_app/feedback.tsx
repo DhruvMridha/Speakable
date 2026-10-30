@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_app/feedback")({
   validateSearch: (search: Record<string, unknown>) => ({
     sessionId: typeof search["sessionId"] === "string" ? search["sessionId"] : undefined,
   }),
-  head: () => ({ meta: [{ title: "Session results — Speakyy" }] }),
+  head: () => ({ meta: [{ title: "Session results — Speakable" }] }),
   component: Feedback,
 });
 
